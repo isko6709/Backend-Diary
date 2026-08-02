@@ -1,0 +1,134 @@
+Pip install packages and in end write python manage.py migrate
+urls.py, рядом с settings
+from rest_framework_simplejwt.views import TokenRefreshView
+
+urlpatterns = i18n_patterns(
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+) + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+urls.py
+
+from .views import (RegisterView, LoginView, LogoutView)
+
+urlpatterns = [
+    path('register/', RegisterView.as_view(), name='register'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+]
+
+
+
+
+SETTINGS.py
+
+from datetime import timedelta
+
+INSTALLED_APPS = [
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": False,
+}
+
+
+SERIALIZER.PY
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
+
+class UserRegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ('first_name', 'username', 'password', 'phone_number')
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        user = UserProfile.objects.create_user(**validated_data)
+        return user
+
+    def to_representation(self, instance):
+        refresh = RefreshToken.for_user(instance)
+        return {
+            'user': {
+                'username': instance.username,
+                'email': instance.email,
+            },
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }
+
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        user = authenticate(**data)
+        if user and user.is_active:
+            return user
+        raise serializers.ValidationError("Неверные учетные данные")
+
+    def to_representation(self, instance):
+        refresh = RefreshToken.for_user(instance)
+        return {
+            'user': {
+                'username': instance.username,
+                'email': instance.email,
+            },
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }
+VIEWS.py
+from .serializers import(UserRegisterSerializer, LoginSerializer)
+
+
+from rest_framework import viewsets, generics, permissions, status
+from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.tokens import RefreshToken
+
+class RegisterView(generics.CreateAPIView):
+    serializer_class = UserRegisterSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class LoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            return Response({"detail": "Неверные учетные данные"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user = serializer.validated_data
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class LogoutView(generics.GenericAPIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response(status=status.HTTP_205_RESET_CONTENT)
+        except Exception:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+

@@ -1,0 +1,54 @@
+settings.py
+
+INSTALLED_APPS = [
+       'django_filters',
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
+}
+
+
+
+Views.py 
+
+from rest_framework import viewsets, generics, permissions, status
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import ProductFilter
+from rest_framework.filters import SearchFilter, OrderingFilter
+from .pagination import CategoryPagination, ProductPagination
+
+class ProductListAPIView(generics.ListAPIView):
+    queryset = Product.objects.all()
+    serializer_class = ProductListSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['product_type', 'price']
+    filterset_class = ProductFilter
+    search_fields = ['product_name']
+    ordering_fields = ['price', 'created_date']
+    pagination_class = ProductPagination
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+filters.py
+
+from django_filters import FilterSet
+from .models import Product
+
+class ProductFilter(FilterSet):
+    class Meta:
+        model = Product
+        fields = {
+            'product_type': ['exact'],
+            'price': ['gt', 'lt'],
+        }
+
+pagination.py 
+
+from rest_framework.pagination import PageNumberPagination
+
+
+class CategoryPagination(PageNumberPagination):
+    page_size = 8
+
+class ProductPagination(PageNumberPagination):
+    page_size = 5

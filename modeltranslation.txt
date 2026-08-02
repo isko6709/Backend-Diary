@@ -1,0 +1,73 @@
+При завершении действий, нужно сделать миграцию
+python manage.py makemigrations
+python manage.py migrate
+
+
+SETTINGS.py 
+
+INSTALLED_APPS = [
+    'modeltranslation',
+]
+ДОЛЖЕН БЫТЬ НА САМОМ ВЕРХУ
+
+MIDDLEWARE = [
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
+]
+
+LANGUAGES = (
+    ('en', 'English'),
+    ('ru', 'Russian'),
+)
+MODELTRANSLATION_DEFAULT_LANGUAGE = 'en'
+MODELTRANSLATION_LANGUAGES = ('en', 'ru')
+
+
+TRANSLATION.PY, TRANSLATION.PY
+TRANSLATION.PY, TRANSLATION.PY
+TRANSLATION.PY, TRANSLATION.PY
+
+from .models import Category,Genre,Country,Director,Actor,Movie,MovieVideo
+from modeltranslation.translator import TranslationOptions,register
+
+@register(Category)
+class CategoryTranslationOptions(TranslationOptions):
+    fields = ('category_name',)
+
+ОФОРМЛЯЕМ НУЖНЫЕ КЛАССЫ И ИХ СТРОКИ
+
+
+
+
+ADMIN.py, ADMIN.py
+ADMIN.py, ADMIN.py
+ADMIN.py, ADMIN.py
+
+
+from .models import *
+from modeltranslation.admin import TranslationAdmin, TranslationInlineModelAdmin
+
+class TranslationMedia:
+    class Media:
+        js = (
+            'http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            'http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js',
+            'modeltranslation/js/tabbed_translation_fields.js',
+        )
+        css = {
+            'screen': ('modeltranslation/css/tabbed_translation_fields.css',),
+        }
+
+ОСНОВНЫЕ КЛАССЫ ДЛЯ ПЕРЕВОДА ОФОРМЛЯЕМ ТАК
+
+@admin.register(Hotel)
+class HotelAdmin(TranslationAdmin, TranslationMedia):
+    inlines = [HotelImageInline, ReviewInline]
+    list_display = ('hotel_name', 'country', 'city', 'hotel_stars')
+
+
+ВТОРОСТЕПЕННЫЕ ТАК
+
+class HotelImageInline(admin.TabularInline):
+    model = HotelImage
+    extra = 1
